@@ -1,18 +1,37 @@
 // --- HACKER SYSTEM ---
 const HackSystem = {
+    // Начальное состояние
     state: {
-        forcedNum: null, bannedNum: null, probNum: null, probVal: 0,
-        godModeRPS: false, coinFix: null
+        forcedNum: null,   // Принудительное число
+        bannedNum: null,   // Запрещенное число
+        probNum: null,     // Число с вероятностью
+        probVal: 0,        // % вероятности
+        godModeRPS: false, // Победа в КНБ
+        coinFix: null      // Подкрутка монетки
     },
+
+    // Загрузка сохраненных данных при старте
     init: function() {
         const saved = localStorage.getItem('hack_data');
-        if(saved) this.state = JSON.parse(saved);
+        if(saved) {
+            try {
+                this.state = JSON.parse(saved);
+            } catch(e) {
+                console.error("Ошибка чтения сохранения хаков");
+            }
+        }
         this.renderConsole();
     },
-    save: function() { localStorage.setItem('hack_data', JSON.stringify(this.state)); },
+
+    // Сохранение данных в браузер
+    save: function() {
+        localStorage.setItem('hack_data', JSON.stringify(this.state));
+    },
+
     renderConsole: function() {
         const input = document.getElementById('hacker_cmd');
         if(!input) return;
+        
         input.addEventListener('keydown', (e) => {
             if(e.key === 'Enter') {
                 const val = input.value.trim();
@@ -21,59 +40,143 @@ const HackSystem = {
             }
         });
     },
+
     log: function(msg, isError=false) {
         const div = document.createElement('div');
         div.textContent = `> ${msg}`;
         div.style.color = isError ? '#ff4444' : '#00ff00';
+        // Добавляем эффект свечения для важных сообщений
+        if(msg.includes('ACTIVE') || msg.includes('ENABLED')) {
+            div.style.textShadow = "0 0 5px #00ff00";
+            div.style.fontWeight = "bold";
+        }
+        
         const out = document.getElementById('hacker_output');
-        if(out) { out.appendChild(div); out.scrollTop = out.scrollHeight; }
+        if(out) {
+            out.appendChild(div);
+            out.scrollTop = out.scrollHeight;
+        }
     },
+
     open: function() {
         document.getElementById('hacker_terminal').style.display = 'flex';
         document.getElementById('hacker_cmd').focus();
+        
+        // Очищаем консоль перед показом статуса
+        const out = document.getElementById('hacker_output');
+        if(out) out.innerHTML = '';
+
         this.log("SYSTEM ACCESS GRANTED.");
+        this.log("-----------------------");
+        
+        // ПРОВЕРКА И ВЫВОД СОХРАНЕННЫХ НАСТРОЕК
+        let hasHacks = false;
+        if (this.state.forcedNum !== null) {
+            this.log(`[!] ACTIVE: Force Number -> ${this.state.forcedNum}`);
+            hasHacks = true;
+        }
+        if (this.state.bannedNum !== null) {
+            this.log(`[!] ACTIVE: Ban Number -> ${this.state.bannedNum}`);
+            hasHacks = true;
+        }
+        if (this.state.probNum !== null) {
+            this.log(`[!] ACTIVE: Probability -> ${this.state.probNum} (${this.state.probVal}%)`);
+            hasHacks = true;
+        }
+        if (this.state.godModeRPS) {
+            this.log(`[!] ACTIVE: GodMode RPS -> ENABLED`);
+            hasHacks = true;
+        }
+        if (this.state.coinFix) {
+            this.log(`[!] ACTIVE: Coin Fix -> ${this.state.coinFix.toUpperCase()}`);
+            hasHacks = true;
+        }
+
+        if(!hasHacks) {
+            this.log("No active overrides.");
+        }
+        this.log("-----------------------");
+        this.log("Ready for input...");
     },
-    close: function() { document.getElementById('hacker_terminal').style.display = 'none'; },
+
+    close: function() {
+        document.getElementById('hacker_terminal').style.display = 'none';
+    },
+
     runCommand: function(str) {
         this.log(str);
         const parts = str.split(' ');
         const cmd = parts[0].toLowerCase();
+
         switch(cmd) {
             case 'help':
-                this.log("force [num] - Force number");
-                this.log("ban [num] - Ban number");
-                this.log("prob [num] [%] - Set probability");
-                this.log("godmode - Win RPS");
-                this.log("coin [orel/reshka] - Fix coin");
-                this.log("reset - Reset hacks");
+                this.log("--- COMMANDS ---");
+                this.log("force [num]     : Always output this number");
+                this.log("ban [num]       : Never output this number");
+                this.log("prob [num] [%]  : Set custom probability");
+                this.log("godmode         : Always win RPS");
+                this.log("coin [orel/reshka]: Fix coin flip");
+                this.log("reset           : Disable all hacks");
+                this.log("exit            : Close terminal");
                 break;
+            
             case 'force':
+                if(!parts[1]) return this.log("Error: Missing number", true);
                 this.state.forcedNum = parseInt(parts[1]);
-                this.state.bannedNum = null; this.state.probNum = null;
-                this.save(); this.log(`FORCE: ${parts[1]}`); break;
+                this.state.bannedNum = null; 
+                this.state.probNum = null;
+                this.save(); 
+                this.log(`SUCCESS: Force Number ${parts[1]} ENABLED`); 
+                break;
+
             case 'ban':
+                if(!parts[1]) return this.log("Error: Missing number", true);
                 this.state.bannedNum = parseInt(parts[1]);
                 this.state.forcedNum = null;
-                this.save(); this.log(`BAN: ${parts[1]}`); break;
+                this.save(); 
+                this.log(`SUCCESS: Number ${parts[1]} BANNED`); 
+                break;
+
             case 'prob':
+                if(!parts[1] || !parts[2]) return this.log("Usage: prob [num] [percent]", true);
                 this.state.probNum = parseInt(parts[1]);
                 this.state.probVal = parseInt(parts[2]);
                 this.state.forcedNum = null;
-                this.save(); this.log(`PROB: ${parts[1]} @ ${parts[2]}%`); break;
+                this.save(); 
+                this.log(`SUCCESS: ${parts[1]} set to ${parts[2]}% chance`); 
+                break;
+
             case 'godmode':
                 this.state.godModeRPS = !this.state.godModeRPS;
-                this.save(); this.log(`GODMODE: ${this.state.godModeRPS}`); break;
+                this.save(); 
+                this.log(`GODMODE: ${this.state.godModeRPS ? "ENABLED" : "DISABLED"}`); 
+                break;
+
             case 'coin':
-                this.state.coinFix = (parts[1] === 'orel') ? 'heads' : (parts[1] === 'reshka' ? 'tails' : null);
-                this.save(); this.log(`COIN: ${this.state.coinFix}`); break;
+                const side = parts[1];
+                if(side === 'orel') this.state.coinFix = 'heads';
+                else if(side === 'reshka') this.state.coinFix = 'tails';
+                else this.state.coinFix = null;
+                this.save(); 
+                this.log(`COIN FIX: ${this.state.coinFix ? this.state.coinFix.toUpperCase() : "RANDOM"}`); 
+                break;
+
             case 'reset':
                 this.state = { forcedNum: null, bannedNum: null, probNum: null, probVal: 0, godModeRPS: false, coinFix: null };
-                this.save(); this.log("RESET DONE"); break;
-            case 'exit': this.close(); break;
-            default: this.log("Unknown cmd", true);
+                this.save(); 
+                this.log("SYSTEM RESTORED TO FACTORY SETTINGS"); 
+                break;
+
+            case 'exit':
+                this.close(); 
+                break;
+
+            default:
+                this.log("Unknown command. Type 'help'.", true);
         }
     }
 };
+
 function closeConsole() { HackSystem.close(); }
 
 // --- AUDIO ---
@@ -186,7 +289,7 @@ function spinWheel() {
 
 // --- APP LOGIC ---
 document.addEventListener('DOMContentLoaded', () => {
-    HackSystem.init();
+    HackSystem.init(); // Загружает сохранения
     if(localStorage.getItem('isMuted') === 'true') toggleMute(); // Sync UI
     else {
         const btn = document.getElementById('sound_toggle');
